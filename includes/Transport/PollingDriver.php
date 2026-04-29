@@ -4,11 +4,11 @@ namespace RTNotify\Transport;
 
 use RTNotify\Abstracts\AbstractTransportDriver;
 
-final class NullDriver extends AbstractTransportDriver
+final class PollingDriver extends AbstractTransportDriver
 {
     public function getName(): string
     {
-        return 'null';
+        return 'polling';
     }
 
     public function isConfigured(): bool
@@ -18,8 +18,8 @@ final class NullDriver extends AbstractTransportDriver
 
     public function dispatch(array $event): array
     {
-        return $this->success([
-            'status' => 'skipped',
-        ]);
+        unset($event);
+
+        return $this->success();
     }
 }

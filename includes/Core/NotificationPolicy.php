@@ -13,10 +13,6 @@ final class NotificationPolicy
 
     public function shouldProcess(array $event): bool
     {
-        if (! $this->settings->isEnabled()) {
-            return false;
-        }
-
         if (! $this->settings->isIntegrationEnabled((string) $event['source'])) {
             return false;
         }
@@ -30,7 +26,7 @@ final class NotificationPolicy
 
     private function isDuplicate(array $event): bool
     {
-        $ttl = (int) $this->settings->get('display_rules.repeat_suppression_seconds', 300);
+        $ttl = 300;
 
         if ($ttl <= 0) {
             return false;

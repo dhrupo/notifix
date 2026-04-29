@@ -12,21 +12,11 @@
     shownCount: 0,
     seen: new Set(),
     container: null,
+    lastEventId: 0,
   };
 
   function shouldConnect() {
     if (document.hidden) {
-      return false;
-    }
-
-    const deviceTarget = String(config.displayRules.device_targeting || "all");
-    const isMobile = window.matchMedia("(max-width: 767px)").matches;
-
-    if (deviceTarget === "mobile" && !isMobile) {
-      return false;
-    }
-
-    if (deviceTarget === "desktop" && isMobile) {
       return false;
     }
 
@@ -69,8 +59,9 @@
       return;
     }
 
-    if (config.transportDriver === "websocket") {
-      connectWebSocket();
+    if (config.transportDriver === "polling") {
+      connectPolling();
+      return;
     }
   }
 
@@ -105,13 +96,8 @@
     }
 
     try {
-      const clientId =
-        (config.providers.ably.clientIdPrefix || "rt-notify") +
-        "-" +
-        Math.random().toString(36).slice(2, 10);
       const realtime = new window.Ably.Realtime({
         key: config.providers.ably.key,
-        clientId: clientId,
       });
       const channel = realtime.channels.get(config.channelName);
       channel.subscribe(config.eventName, function (message) {
@@ -123,29 +109,63 @@
     }
   }
 
-  function connectWebSocket() {
+  function connectPolling() {
     if (state.connection) {
       return;
     }
 
+    state.connection = { type: "polling", active: true };
+    pollLoop();
+  }
+
+  async function pollLoop() {
+    if (!state.connection || config.transportDriver !== "polling") {
+      return;
+    }
+
+    if (shouldConnect()) {
+      await fetchPollingEvents();
+    }
+
+    window.setTimeout(
+      pollLoop,
+      Math.max(5, Number(config.polling && config.polling.interval || 12)) * 1000
+    );
+  }
+
+  async function fetchPollingEvents() {
+    const polling = config.polling || {};
+    const restUrl = polling.restUrl || "";
+
+    if (!restUrl) {
+      return;
+    }
+
     try {
-      state.connection = new window.WebSocket(config.providers.websocket.socketUrl);
-      state.connection.addEventListener("message", function (event) {
-        let payload;
+      const url = new window.URL(restUrl, window.location.origin);
+      url.searchParams.set("since_id", String(state.lastEventId || 0));
+      url.searchParams.set("limit", String(Number(polling.limit || 5)));
 
-        try {
-          payload = JSON.parse(event.data);
-        } catch (error) {
-          return;
-        }
-
-        onPayload(payload);
+      const response = await window.fetch(url.toString(), {
+        credentials: "same-origin",
       });
-      state.connection.addEventListener("close", reconnect);
-      state.connection.addEventListener("error", reconnect);
+
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = await response.json();
+      const events = Array.isArray(payload.events) ? payload.events : [];
+
+      events.forEach(function (event) {
+        onPayload(event);
+      });
+
+      if (Number(payload.last_id || 0) > state.lastEventId) {
+        state.lastEventId = Number(payload.last_id);
+      }
     } catch (error) {
-      state.connection = null;
-      reconnect();
+      return;
     }
   }
 
@@ -180,10 +200,6 @@
     }
 
     const actor = item.actor || {};
-
-    if (identity.mask_mode === "always-anonymous") {
-      return fallback;
-    }
 
     return actor.username || actor.label || fallback;
   }

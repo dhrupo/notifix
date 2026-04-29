@@ -22,12 +22,11 @@ final class TemplateRenderer
     {
         $fallback = (string) $this->settings->get('identity.fallback_label', 'Someone');
         $showUsername = $this->settings->get('identity.show_username', 'yes') === 'yes';
-        $maskMode = (string) $this->settings->get('identity.mask_mode', 'safe');
 
         $username = trim((string) ($event['actor']['username'] ?? ''));
         $label = trim((string) ($event['actor']['label'] ?? ''));
 
-        if (! $showUsername || $maskMode === 'always-anonymous') {
+        if (! $showUsername) {
             return $fallback;
         }
 

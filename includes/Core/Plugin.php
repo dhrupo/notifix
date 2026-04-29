@@ -6,9 +6,8 @@ use RTNotify\Admin\DebugPage;
 use RTNotify\Admin\IntegrationCatalog;
 use RTNotify\Transport\AblyDriver;
 use RTNotify\Admin\SettingsPage;
-use RTNotify\Transport\NullDriver;
+use RTNotify\Transport\PollingDriver;
 use RTNotify\Transport\PusherDriver;
-use RTNotify\Transport\WebSocketDriver;
 
 final class Plugin
 {
@@ -31,8 +30,7 @@ final class Plugin
 
     public static function activate(): void
     {
-        $settings = new Settings();
-        $repository = new EventRepository($GLOBALS['wpdb'], $settings);
+        $repository = new EventRepository($GLOBALS['wpdb']);
         $repository->createTable();
 
         if (! wp_next_scheduled('rt_notify_daily_cleanup')) {
@@ -56,16 +54,16 @@ final class Plugin
         }
 
         $this->settings = new Settings();
-        $this->repository = new EventRepository($GLOBALS['wpdb'], $this->settings);
+        $this->repository = new EventRepository($GLOBALS['wpdb']);
         $normalizer = new EventNormalizer($this->settings);
         $policy = new NotificationPolicy($this->settings);
         $renderer = new TemplateRenderer($this->settings);
-        $channelResolver = new ChannelResolver($this->settings);
+        $channelResolver = new ChannelResolver();
+        $restController = new RestController($this->repository);
         $transportManager = new TransportManager($this->settings);
-        $transportManager->register(new NullDriver($this->settings));
+        $transportManager->register(new PollingDriver($this->settings));
         $transportManager->register(new PusherDriver($this->settings, $channelResolver));
         $transportManager->register(new AblyDriver($this->settings, $channelResolver));
-        $transportManager->register(new WebSocketDriver($this->settings));
         $eventManager = new EventManager($normalizer, $this->repository, $policy, $transportManager, $renderer);
 
         add_action('rt_notify_event', [$eventManager, 'emit'], 10, 1);
@@ -74,6 +72,7 @@ final class Plugin
         add_action('admin_menu', [new SettingsPage($this->settings, new IntegrationCatalog()), 'register']);
         add_action('admin_menu', [new DebugPage($this->repository, $this->settings), 'register']);
         add_action('admin_enqueue_scripts', [$this, 'enqueueAdminAssets']);
+        add_action('rest_api_init', [$restController, 'registerRoutes']);
         add_action('wp_enqueue_scripts', [$this, 'enqueueFrontendAssets']);
         add_action('rt_notify_daily_cleanup', [$this->repository, 'pruneExpired']);
 
@@ -147,12 +146,12 @@ final class Plugin
 
     public function enqueueFrontendAssets(): void
     {
-        if (is_admin() || ! $this->settings()->isEnabled()) {
+        if (is_admin()) {
             return;
         }
 
-        $transport = (string) $this->settings()->get('transport_driver', 'null');
-        $channelResolver = new ChannelResolver($this->settings());
+        $transport = (string) $this->settings()->get('transport_driver', 'polling');
+        $channelResolver = new ChannelResolver();
         $transportConfig = $this->frontendTransportConfig($transport);
 
         if ($transportConfig === null) {
@@ -188,20 +187,20 @@ final class Plugin
                 'displayRules'    => $this->settings()->get('display_rules', []),
                 'identity'        => $this->settings()->get('identity', []),
                 'ui'              => $this->settings()->get('ui', []),
+                'polling'         => [
+                    'interval' => (int) $this->settings()->get('polling.interval', 12),
+                    'limit'    => 5,
+                    'restUrl'  => esc_url_raw(rest_url('notifix/v1/events')),
+                ],
                 'providers'       => [
                     'pusher'    => [
                         'key'     => $this->settings()->get('pusher.key', ''),
                         'cluster' => $this->settings()->get('pusher.cluster', 'mt1'),
                     ],
                     'ably'      => [
-                        'key'           => $this->settings()->get('ably.client_key', '') ?: $this->settings()->get('ably.api_key', ''),
-                        'clientIdPrefix'=> $this->settings()->get('ably.client_id_prefix', 'notifix'),
-                    ],
-                    'websocket' => [
-                        'socketUrl' => $this->settings()->get('socket_url', ''),
+                        'key' => $this->settings()->get('ably.api_key', ''),
                     ],
                 ],
-                'debug'           => $this->settings()->get('debug', 'no') === 'yes',
             ]
         );
     }
@@ -212,11 +211,11 @@ final class Plugin
             return ['ready' => true];
         }
 
-        if ($transport === 'ably' && ((string) $this->settings()->get('ably.client_key', '') !== '' || (string) $this->settings()->get('ably.api_key', '') !== '')) {
+        if ($transport === 'ably' && (string) $this->settings()->get('ably.api_key', '') !== '') {
             return ['ready' => true];
         }
 
-        if ($transport === 'websocket' && (string) $this->settings()->get('socket_url', '') !== '') {
+        if ($transport === 'polling') {
             return ['ready' => true];
         }
 
@@ -228,7 +227,7 @@ final class Plugin
         unset($transportConfig);
 
         if ($transport === 'pusher') {
-            $url = (string) $this->settings()->get('pusher.client_js_url', '');
+            $url = 'https://js.pusher.com/8.4.0/pusher.min.js';
 
             if ($url !== '') {
                 wp_enqueue_script('rt-notify-provider-pusher', $url, [], null, true);
@@ -236,7 +235,7 @@ final class Plugin
         }
 
         if ($transport === 'ably') {
-            $url = (string) $this->settings()->get('ably.client_js_url', '');
+            $url = 'https://cdn.ably.com/lib/ably.min-2.js';
 
             if ($url !== '') {
                 wp_enqueue_script('rt-notify-provider-ably', $url, [], null, true);

@@ -8,12 +8,9 @@ final class EventRepository
 {
     private wpdb $wpdb;
 
-    private Settings $settings;
-
-    public function __construct(wpdb $wpdb, Settings $settings)
+    public function __construct(wpdb $wpdb)
     {
         $this->wpdb = $wpdb;
-        $this->settings = $settings;
     }
 
     public function table(): string
@@ -103,9 +100,42 @@ final class EventRepository
         return array_map([$this, 'decodeRow'], $rows ?: []);
     }
 
+    public function publicFeed(int $sinceId = 0, int $limit = 5): array
+    {
+        $sinceId = max(0, $sinceId);
+        $limit = max(1, min(20, absint($limit)));
+        $table = $this->table();
+
+        if ($sinceId > 0) {
+            $rows = $this->wpdb->get_results(
+                $this->wpdb->prepare(
+                    "SELECT * FROM {$table} WHERE visibility = %s AND dispatch_status IN ('sent', 'skipped') AND id > %d ORDER BY id ASC LIMIT %d",
+                    'public',
+                    $sinceId,
+                    $limit
+                ),
+                ARRAY_A
+            );
+        } else {
+            $rows = $this->wpdb->get_results(
+                $this->wpdb->prepare(
+                    "SELECT * FROM {$table} WHERE visibility = %s AND dispatch_status IN ('sent', 'skipped') ORDER BY id DESC LIMIT %d",
+                    'public',
+                    $limit
+                ),
+                ARRAY_A
+            );
+            $rows = array_reverse($rows ?: []);
+        }
+
+        $items = array_map([$this, 'decodeRow'], $rows ?: []);
+
+        return array_map([$this, 'toPublicEvent'], $items);
+    }
+
     public function pruneExpired(): void
     {
-        $days = max(1, (int) $this->settings->get('event_retention_days', 30));
+        $days = 30;
         $table = $this->table();
         $cutoff = gmdate('Y-m-d H:i:s', current_time('timestamp') - ($days * DAY_IN_SECONDS));
 
@@ -119,10 +149,27 @@ final class EventRepository
 
     private function decodeRow(array $row): array
     {
+        $row['id'] = (int) $row['id'];
         $row['meta'] = json_decode((string) $row['meta'], true) ?: [];
         $row['actor'] = json_decode((string) $row['actor'], true) ?: [];
         $row['object'] = json_decode((string) $row['object'], true) ?: [];
 
         return $row;
+    }
+
+    private function toPublicEvent(array $row): array
+    {
+        return [
+            'id'         => (int) $row['id'],
+            'type'       => (string) $row['type'],
+            'source'     => (string) $row['source'],
+            'title'      => (string) $row['title'],
+            'message'    => (string) $row['message'],
+            'actor'      => is_array($row['actor']) ? $row['actor'] : [],
+            'object'     => is_array($row['object']) ? $row['object'] : [],
+            'created_at' => (string) $row['created_at'],
+            'timestamp'  => strtotime((string) $row['created_at']) ?: 0,
+            'dedupe_key' => (string) $row['dedupe_key'],
+        ];
     }
 }

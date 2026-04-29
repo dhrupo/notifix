@@ -47,7 +47,7 @@ final class AblyDriver extends AbstractTransportDriver
         $response = wp_remote_post(
             $url,
             [
-                'timeout' => (int) $this->settings->get('connection_timeout', 5),
+                'timeout' => 5,
                 'headers' => [
                     'Content-Type'  => 'application/json',
                     'Authorization' => 'Basic ' . base64_encode($apiKey),

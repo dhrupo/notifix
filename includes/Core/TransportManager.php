@@ -25,7 +25,7 @@ final class TransportManager
 
     public function dispatch(array $event): array
     {
-        $driver = $this->drivers[$this->settings->get('transport_driver', 'null')] ?? null;
+        $driver = $this->drivers[$this->settings->get('transport_driver', 'polling')] ?? null;
 
         if (! $driver instanceof TransportDriverInterface) {
             return [

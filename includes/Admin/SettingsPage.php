@@ -62,35 +62,33 @@ final class SettingsPage
                     <h1><?php esc_html_e('Notifix Settings', 'notifix'); ?></h1>
                     <p><?php esc_html_e('Configure realtime delivery, appearance, identity, and plugin integrations from one place.', 'notifix'); ?></p>
                 </div>
-                <div class="notifix-admin__hero-meta">
-                    <span class="notifix-badge notifix-badge--muted"><?php echo esc_html__('Plugin', 'notifix') . ': ' . esc_html(RT_NOTIFY_VERSION); ?></span>
-                    <span class="notifix-badge"><?php echo esc_html__('Page', 'notifix') . ': page=' . esc_html(self::PAGE_SLUG); ?></span>
-                </div>
             </div>
 
             <form method="post" action="options.php">
                 <?php settings_fields('rt_notify_settings'); ?>
 
-                <?php $this->renderSectionStart('General', __('Engine status, persistence, and the main realtime provider.', 'notifix'), true); ?>
+                <?php $this->renderSectionStart('General', __('Choose how Notifix delivers notifications on the frontend.', 'notifix'), true); ?>
                     <div class="notifix-grid notifix-grid--2">
                         <?php
-                        $this->renderToggleField(__('Enable Engine', 'notifix'), 'enabled', $settings['enabled']);
-                        $this->renderToggleField(__('Debug Mode', 'notifix'), 'debug', $settings['debug']);
                         $this->renderSelectField(
                             __('Transport Driver', 'notifix'),
                             'transport_driver',
                             $settings['transport_driver'],
                             [
-                                'null'   => __('Disabled', 'notifix'),
-                                'pusher' => __('Pusher', 'notifix'),
-                                'ably'   => __('Ably', 'notifix'),
+                                'polling' => __('Polling', 'notifix'),
+                                'pusher'  => __('Pusher', 'notifix'),
+                                'ably'    => __('Ably', 'notifix'),
                             ],
-                            __('Use a managed provider. The old custom websocket path is intentionally hidden from the admin UI.', 'notifix')
+                            __('Choose polling for standard WordPress hosting, or a managed provider for push delivery.', 'notifix')
                         );
-                        $this->renderTextField(__('Channel Name', 'notifix'), 'channel_name', $settings['channel_name'], __('Leave empty to use the generated site-specific channel.', 'notifix'));
-                        $this->renderTextField(__('Event Name', 'notifix'), 'transport_event_name', $settings['transport_event_name']);
-                        $this->renderNumberField(__('Retention Days', 'notifix'), 'event_retention_days', $settings['event_retention_days'], 1);
-                        $this->renderNumberField(__('Connection Timeout', 'notifix'), 'connection_timeout', $settings['connection_timeout'], 1);
+                        ?>
+                    </div>
+                <?php $this->renderSectionEnd(); ?>
+
+                <?php $this->renderSectionStart('Polling', __('Shown only when Polling is selected as the transport driver.', 'notifix'), false, 'polling'); ?>
+                    <div class="notifix-grid notifix-grid--2">
+                        <?php
+                        $this->renderNumberField(__('Polling Interval (seconds)', 'notifix'), 'polling][interval', $settings['polling']['interval'], 5, __('Keep this conservative for shared hosting. 10 to 15 seconds is usually enough.', 'notifix'));
                         ?>
                     </div>
                 <?php $this->renderSectionEnd(); ?>
@@ -102,7 +100,6 @@ final class SettingsPage
                         $this->renderTextField(__('Key', 'notifix'), 'pusher][key', $settings['pusher']['key']);
                         $this->renderTextField(__('Secret', 'notifix'), 'pusher][secret', $settings['pusher']['secret']);
                         $this->renderTextField(__('Cluster', 'notifix'), 'pusher][cluster', $settings['pusher']['cluster']);
-                        $this->renderUrlField(__('Client SDK URL', 'notifix'), 'pusher][client_js_url', $settings['pusher']['client_js_url']);
                         ?>
                     </div>
                 <?php $this->renderSectionEnd(); ?>
@@ -110,31 +107,17 @@ final class SettingsPage
                 <?php $this->renderSectionStart('Ably', __('Shown only when Ably is selected as the realtime provider.', 'notifix'), false, 'ably'); ?>
                     <div class="notifix-grid notifix-grid--2">
                         <?php
-                        $this->renderTextField(__('Publish API Key', 'notifix'), 'ably][api_key', $settings['ably']['api_key']);
-                        $this->renderTextField(__('Frontend Client Key', 'notifix'), 'ably][client_key', $settings['ably']['client_key'], __('Prefer a restricted frontend key or token-auth flow.', 'notifix'));
-                        $this->renderTextField(__('Client ID Prefix', 'notifix'), 'ably][client_id_prefix', $settings['ably']['client_id_prefix']);
-                        $this->renderUrlField(__('Client SDK URL', 'notifix'), 'ably][client_js_url', $settings['ably']['client_js_url']);
+                        $this->renderTextField(__('API Key', 'notifix'), 'ably][api_key', $settings['ably']['api_key']);
                         ?>
                     </div>
                 <?php $this->renderSectionEnd(); ?>
 
-                <?php $this->renderSectionStart('Display Rules', __('Control timing and frequency for when notifications appear.', 'notifix')); ?>
+                <?php $this->renderSectionStart('Display Rules', __('Control when notifications begin and how often they appear.', 'notifix')); ?>
                     <div class="notifix-grid notifix-grid--2">
                         <?php
                         $this->renderNumberField(__('Delay Before First Notification', 'notifix'), 'display_rules][delay_before_first', $settings['display_rules']['delay_before_first'], 0);
                         $this->renderNumberField(__('Cooldown Between Notifications', 'notifix'), 'display_rules][cooldown_between', $settings['display_rules']['cooldown_between'], 1);
                         $this->renderNumberField(__('Max Notifications Per Session', 'notifix'), 'display_rules][max_notifications_session', $settings['display_rules']['max_notifications_session'], 1);
-                        $this->renderNumberField(__('Repeat Suppression Window', 'notifix'), 'display_rules][repeat_suppression_seconds', $settings['display_rules']['repeat_suppression_seconds'], 0);
-                        $this->renderSelectField(
-                            __('Device Targeting', 'notifix'),
-                            'display_rules][device_targeting',
-                            $settings['display_rules']['device_targeting'],
-                            [
-                                'all'     => __('All Devices', 'notifix'),
-                                'desktop' => __('Desktop Only', 'notifix'),
-                                'mobile'  => __('Mobile Only', 'notifix'),
-                            ]
-                        );
                         ?>
                     </div>
                 <?php $this->renderSectionEnd(); ?>
@@ -148,7 +131,7 @@ final class SettingsPage
                     </div>
                 <?php $this->renderSectionEnd(); ?>
 
-                <?php $this->renderSectionStart('Appearance', __('Customize the toast layout, colors, spacing, and position.', 'notifix')); ?>
+                <?php $this->renderSectionStart('Appearance', __('Customize the toast position, colors, and visibility timing.', 'notifix')); ?>
                     <div class="notifix-grid notifix-grid--2">
                         <?php
                         $this->renderSelectField(
@@ -166,22 +149,7 @@ final class SettingsPage
                         );
                         $this->renderColorField(__('Background Color', 'notifix'), 'ui][bg_color', $settings['ui']['bg_color']);
                         $this->renderColorField(__('Text Color', 'notifix'), 'ui][text_color', $settings['ui']['text_color']);
-                        $this->renderColorField(__('Accent Color', 'notifix'), 'ui][accent_color', $settings['ui']['accent_color']);
-                        $this->renderNumberField(__('Border Radius', 'notifix'), 'ui][border_radius', $settings['ui']['border_radius'], 0);
-                        $this->renderNumberField(__('Max Width', 'notifix'), 'ui][max_width', $settings['ui']['max_width'], 220);
-                        $this->renderNumberField(__('Spacing', 'notifix'), 'ui][spacing', $settings['ui']['spacing'], 0);
                         $this->renderNumberField(__('Duration (ms)', 'notifix'), 'ui][duration', $settings['ui']['duration'], 1000);
-                        $this->renderNumberField(__('Animation Speed (ms)', 'notifix'), 'ui][animation_speed', $settings['ui']['animation_speed'], 100);
-                        ?>
-                    </div>
-                <?php $this->renderSectionEnd(); ?>
-
-                <?php $this->renderSectionStart('Fake Events', __('Optional synthetic activity when no real events are available.', 'notifix')); ?>
-                    <div class="notifix-grid notifix-grid--2">
-                        <?php
-                        $this->renderToggleField(__('Enable Fake Events', 'notifix'), 'fake_events][enabled', $settings['fake_events']['enabled']);
-                        $this->renderNumberField(__('Fake Event Frequency', 'notifix'), 'fake_events][frequency', $settings['fake_events']['frequency'], 0);
-                        $this->renderTextField(__('Fake Event Label', 'notifix'), 'fake_events][label', $settings['fake_events']['label']);
                         ?>
                     </div>
                 <?php $this->renderSectionEnd(); ?>
