@@ -1,0 +1,7 @@
+.DS_Store
+.playwright-mcp/
+notifix-settings.png
+*.log
+*.zip
+node_modules/
+vendor/

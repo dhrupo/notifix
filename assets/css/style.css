@@ -1,0 +1,83 @@
+.rt-notify {
+  position: fixed;
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rt-gap, 16px);
+  width: min(calc(100vw - 32px), var(--rt-width, 360px));
+  pointer-events: none;
+}
+
+.rt-notify--top-left {
+  top: var(--rt-gap, 16px);
+  left: var(--rt-gap, 16px);
+}
+
+.rt-notify--top-right {
+  top: var(--rt-gap, 16px);
+  right: var(--rt-gap, 16px);
+}
+
+.rt-notify--bottom-left {
+  bottom: var(--rt-gap, 16px);
+  left: var(--rt-gap, 16px);
+}
+
+.rt-notify--bottom-right {
+  bottom: var(--rt-gap, 16px);
+  right: var(--rt-gap, 16px);
+}
+
+.rt-notify--top-center {
+  top: var(--rt-gap, 16px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.rt-notify--bottom-center {
+  bottom: var(--rt-gap, 16px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.rt-notify__toast {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--rt-radius, 12px);
+  background: var(--rt-bg, #111827);
+  color: var(--rt-text, #ffffff);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.25);
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+  transition:
+    opacity var(--rt-duration, 280ms) ease,
+    transform var(--rt-duration, 280ms) ease;
+}
+
+.rt-notify__toast.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.rt-notify__bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--rt-accent, #22c55e);
+}
+
+.rt-notify__body {
+  padding: 14px 16px 14px 18px;
+}
+
+.rt-notify__message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+  .rt-notify {
+    width: min(calc(100vw - 20px), var(--rt-width, 360px));
+  }
+}
